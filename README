@@ -1,11 +1,13 @@
-Provides a simple framework for creating and training Self-Organizing Maps fairly quickly using scipy.
+Provides a simple framework for creating and training Self-Organizing Maps fairly quickly using numpy.
 
-Built against the Python 2.x series on Linux.  Python 3 compatibility unknown.  No OS specific code used, but untested on other OSes.
+Built against the Python 2.7 on Linux.  Python 3 compatibility unknown.  
+No OS specific code used, but untested on other OSes.
 Dependencies:
+  python-numpy
   Saving images (like the similarity mask) requires Python Imaging Library (PIL)
 
 An example is included which creates a SOM for colors.  This is a nice way to see what's happening.
-
 The save_colors function is meaningless outside of the colors example.
+
 Normally you would just view the similarity mask. Which gives you an idea of the smoothness.
 The darker an area is the more rapid the change that occurred there across the SOM.  This is generally bad.

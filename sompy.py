@@ -4,16 +4,15 @@ from __future__ import division
 ## halbig.roland@freenet.de
 ## Dec 19 2013
 
-## Self-organizing map using scipy and np
+## Self-organizing map using numpy
 ## This code is licensed and released under the GNU GPL
 
-## This code uses a square grid rather than hexagonal grid, as scipy allows for fast square grid computation.
-## I designed sompy for speed, so attempting to read the code may not be very intuitive.
-## I owe most of my inspiration to kyle.dickerson@gmail.com. His branch of sompy can be found on github:
+## This code uses a square grid but can be adjusted to a hexagonal grid. 
+## In order to do this, change the initialization an the find_neighborhood functions.
+##
+## This code is a fork from sompy.py by Kyle Dickerson (kyle.dickerson@gmail.com). 
+## His branch of sompy can be found on github:
 ## https://github.com/kdickerson/Sompy
-## If you're trying to learn how SOMs work, I would suggest starting with Paras Chopras SOMPython code:
-##  http://www.paraschopra.com/sourcecode/SOM/index.php
-## It has a more intuitive structure for those unfamiliar with scipy, however it is much slower.
 
 ## If you do use this code for something, please let me know, I'd like to know if has been useful to anyone.
 
