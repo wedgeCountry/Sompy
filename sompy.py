@@ -139,9 +139,11 @@ class SOM(AbstractSom):
 	# get decaying radius	
 	def getRadius(self, iteration, max_iterations):
 		return self.radius * exp(-1.0*iteration*log(self.radius)/max_iterations)
+		
 	# get learning rate for each iteration
 	def getLearningRate(self, iteration, max_iterations):
 		return self.learning_rate * exp(-1.0*iteration*log(self.radius)/max_iterations)
+
 	# get adaption coefficient
 	def getInfluence(self, distance, radius, iteration):
 			return exp( -1.0 * (distance**2) / (2*radius*iteration) )		
@@ -169,8 +171,10 @@ class SOM(AbstractSom):
 				self.nodeDict[index] = [i, j]			
 
 		if not self.FV_ranges:
+			''' random vectors with values between 0 and 100 '''
 			self.nodes = np.asarray( map( lambda x: np.random.uniform(0,100,(self.FV_size,)) , self.nodes ) )
 		elif self.FV_ranges == 'xy_box':
+			''' regular grid on the x-y plane. This functionality shoul be used on PCA-transformed data! '''
 			self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
 			minmax = getBoundingBox(train_vector)
 			hh, hw = 1.0/float(self.height-1), 1.0/float(self.width-1)
@@ -178,17 +182,19 @@ class SOM(AbstractSom):
 				for j in range(self.width):
 					index = self.getIndex(i,j)
 					self.nodes[index, 0] = minmax[0,0] + i*hh*abs(minmax[0,1]-minmax[0,0])
-					self.nodes[index, 1] = minmax[1,0] + j*hw*abs(minmax[1,1]-minmax[1,0])
-			
+					self.nodes[index, 1] = minmax[1,0] + j*hw*abs(minmax[1,1]-minmax[1,0])			
 		elif self.FV_ranges == 'minmax_box':
+			''' random vectors with values within the bounding box of the data '''
 			self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
 			minmax = getBoundingBox(train_vector)
 			rand_init = lambda x : np.asarray([ random.uniform(minmax[i][0], minmax[i][1]) for i in range(self.FV_size) ])
 			self.nodes = np.asarray( map( rand_init , self.nodes ) )
 		elif len(self.FV_ranges) == 1:
+			''' random vectors with values within the range of [[min, max]] '''
 			range0, range1 = self.FV_ranges[0][0], self.FV_ranges[0][1]
 			self.nodes = np.asarray( map( lambda x: np.random.uniform(range0,range1,(self.FV_size,)) , self.nodes ) )
 		else:
+			''' random vectors with values within the range of [[min_1, max_1] ... [min_n, max_n]] '''
 			rand_init = lambda x : np.asarray([ random.uniform(self.FV_ranges[i][0], self.FV_ranges[i][1]) for i in range(self.FV_size) ])
 			self.nodes = np.asarray( map( rand_init , self.nodes ) )
 		
@@ -236,7 +242,7 @@ if __name__ == "__main__":
 	width = 100
 	height = 100
 	iterations = 500
-	color_som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=0.5, FV_ranges='minmax_box') #'xy_box')#
+	color_som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=0.5, FV_ranges='minmax_box') 
 
 	print "Training colors..."
 	color_som.train(iterations=iterations, train_vector=colors)
