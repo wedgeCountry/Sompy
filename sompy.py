@@ -1,200 +1,259 @@
 from __future__ import division
 
-## Kyle Dickerson
-## kyle.dickerson@gmail.com
-## Jan 15, 2008
-##
-## Self-organizing map using scipy
+## Roland Halbig
+## halbig.roland@freenet.de
+## Dec 19 2013
+
+## Self-organizing map using scipy and np
 ## This code is licensed and released under the GNU GPL
 
+## This code uses a square grid rather than hexagonal grid, as scipy allows for fast square grid computation.
+## I designed sompy for speed, so attempting to read the code may not be very intuitive.
+## I owe most of my inspiration to kyle.dickerson@gmail.com. His branch of sompy can be found on github:
+## https://github.com/kdickerson/Sompy
+## If you're trying to learn how SOMs work, I would suggest starting with Paras Chopras SOMPython code:
+##  http://www.paraschopra.com/sourcecode/SOM/index.php
+## It has a more intuitive structure for those unfamiliar with scipy, however it is much slower.
+
+## If you do use this code for something, please let me know, I'd like to know if has been useful to anyone.
+
+from random import *
 import random
-import math
+from math import *
 import sys
-import scipy
-import scipy.ndimage
 from PIL import Image
+import scipy.ndimage
+import numpy as np
 
 
-# returns the row, column pair that corresponds to the 1-d index of a 2-d array with given width
-def find_indices(loc, width):
-    r = 0
-    while loc >= width:
-        loc -= width
-        r += 1
-    c = loc
-    return (r, c)
+''' Abstract SOM: No specific structure for nodes -> specify in initializeNodes(), call using getNodeVector, addToNodeVector '''
+class AbstractSom():
+	def __init__(self, height=10, width=10, FV_size=10, learning_rate=0.005, FV_ranges=None):
+		self.height = height
+		self.width = width
+		self.total = self.width * self.height
+		self.FV_size = FV_size
+		self.FV_ranges = FV_ranges
+		self.learning_rate = learning_rate
+		self.radius = 1 # !! choose > 1
+		
+	def train(self, train_vector=[[]], iterations=100, continue_training=False):
+		
+		train_vector = np.asarray(train_vector)
+		if continue_training is False:
+			self.initializeNodes(train_vector)	
+		else: self.initBmuCount()
+		
+		for current_iteration in range(1, iterations+1):
+			sys.stdout.write("\rTraining Iteration: " + str(current_iteration) + "/" + str(iterations))
+			sys.stdout.flush()
+			
+			current_radius = self.getRadius(current_iteration, iterations)
+			current_learning_rate = self.getLearningRate(current_iteration, iterations)
+	
+			for j in range(int(len(train_vector)/1)):
+				best = self.best_match(train_vector[j])
+				self.raiseBmuCount(self.getIndex(best[0], best[1]))
+				
+				neighborhood = self.find_neighborhood(best, current_radius)
+				for [neighbourhood_index, dist] in neighborhood:
+					influence = self.getInfluence(dist, current_radius, current_iteration)
+					current_data = self.getNodeVector(neighbourhood_index)
+					update = influence * current_learning_rate * (train_vector[j][:] - current_data)
+					self.addToNodeVector(neighbourhood_index, update)
+		sys.stdout.write("\n")
 
-class SOM:
-    # FV_ranges allows you to specify the range of each feature in the feature vector
-    # This lets you workaround the problem of having all of your features outside the range of the initialization values
-    # Which, from my tests, may result in bad results
-    def __init__(self, height=10, width=10, FV_size=10, learning_rate=0.1, FV_ranges=None):
-        self.height = height
-        self.width = width
-        self.FV_size = FV_size
-        #self.nodes = scipy.random.random((width, height, FV_size))
-        if not FV_ranges:
-            self.nodes = scipy.random.uniform(0,100,(width, height, FV_size))
-        elif len(FV_ranges) == 1:
-            self.nodes = scipy.random.uniform(FV_ranges[0][0],FV_ranges[0][1],(width, height, FV_size))
-        else:
-            self.nodes = scipy.array( [[[random.uniform(FV_ranges[i][0], FV_ranges[i][1]) for i in range(FV_size)] for j in range(width)] for k in range(height)])
-        
-        self.learning_rate = learning_rate
-        self.radius = (height+width)/4
+	def build_distance_mask(self):
+		tmp_nodes = np.zeros((self.width, self.height), float)
+		for r in range(self.height):
+			for c in range(self.width):
+				neighborhood = self.find_neighborhood((r,c), 1)
+				for [n, dist] in neighborhood:
+					tmp_nodes[r,c] += self.FV_distance(self.getNodeVector(self.getIndex(r,c)), self.getNodeVector(n))
+		return tmp_nodes
+		
+	# Show smoothness of the SOM.  The darker the area the more rapid the change, generally bad.
+	def save_similarity_mask(self, filename, path="."):
+		tmp_nodes = self.build_distance_mask()
+		#tmp_nodes -= tmp_nodes.min()
+		tmp_nodes *= 255 / tmp_nodes.max()
+		tmp_nodes = 255 - tmp_nodes
+		img = Image.new("L", (self.width, self.height))
+		for r in range(self.height):
+			for c in range(self.width):
+				img.putpixel((c,r), tmp_nodes[r,c])
+		img = img.resize((self.width*10,self.height*10),Image.NEAREST)
+		img.save(path + "/" + filename + ".png")
 
-    # train_vector: [ FV0, FV1, FV2, ...] -> [ [...], [...], [...], ...]
-    def train(self, iterations, train_vector, iterative_update=False, grow=True, num_pts_to_grow=3):
-        self.iterations = iterations
-        
-        for t in range(len(train_vector)):
-            train_vector[t] = scipy.array(train_vector[t])
-        delta_nodes = scipy.zeros((self.width, self.height, self.FV_size), float)
-        
-        for i in range(1, iterations):
-            cur_radius = self.radius_decay(i)
-            cur_lr = self.learning_rate_decay(i)
-            sys.stdout.write("\rTraining Iteration: " + str(i+1) + "/" + str(iterations))
-            sys.stdout.flush()
-            
-            # Grow the map where it's doing worst
-            if grow and not (i % 20):
-                for iik in range(num_pts_to_grow):
-                    dist_mask = self.build_distance_mask()
-                    worst_loc = find_indices(scipy.argmax(dist_mask), self.width)
-                    worst_row = worst_loc[0]
-                    worst_col = worst_loc[1]
-                    # Insert the row
-                    prev_row = worst_row - 1 if worst_row-1 >= 0 else self.height - 1
-                    next_row = worst_row + 1 if worst_row+1 < self.height else 0
-                    self.nodes = scipy.insert(self.nodes, worst_row, [[0]], axis=0)
-                    self.height += 1
-                    # Fill the new row with interpolated values
-                    for col in range(self.width):
-                        self.nodes[worst_row, col] = (self.nodes[prev_row, col] + self.nodes[next_row, col]) / 2
-                    # Insert the column
-                    prev_col = worst_col - 1 if worst_col-1 >= 0 else self.width - 1
-                    next_col = worst_col + 1 if worst_col+1 < self.width else 0
-                    self.nodes = scipy.insert(self.nodes, worst_col, [[0]], axis=1)
-                    self.width += 1
-                    # Fill the new column with interpolated values
-                    for row in range(self.height):
-                        self.nodes[row, worst_col] = (self.nodes[row, prev_col] + self.nodes[row, next_col]) / 2
-                self.radius = (self.height+self.width)/4
-                delta_nodes = scipy.zeros((self.width, self.height, self.FV_size), float)
-            
-            if not iterative_update:
-                delta_nodes.fill(0)
-            else:
-                random.shuffle(train_vector)
-            
-            for j in range(len(train_vector)):
-                best = self.best_match(train_vector[j])
-                # pick out the nodes that are within our decaying radius:
-                for loc in self.find_neighborhood(best, cur_radius):
-                    influence = (-loc[2] + cur_radius) / cur_radius  # linear scaling of influence
-                    inf_lrd = influence*cur_lr
-                    delta_nodes[loc[0],loc[1]] += inf_lrd*(train_vector[j]-self.nodes[loc[0],loc[1]])
-                if iterative_update:
-                    self.nodes += delta_nodes
-                    delta_nodes.fill(0)
-            if not iterative_update:
-		delta_nodes /= len(train_vector)
-                self.nodes += delta_nodes
-        sys.stdout.write("\n")
+########################################################################################################
+		
+def getBoundingBox(samples):
+	samples = np.asarray(samples)
+	minmax = np.asarray( [ [0.0]*2 ] * np.shape(samples)[1])
+	for i in range(np.shape(samples)[1]):
+		minmax[i,0] = min(samples[:,i])
+		minmax[i,1] = max(samples[:,i])
+	return minmax
 
-    def smooth(self):
-        self.nodes = scipy.ndimage.gaussian_filter(self.nodes, 0.5)
-    
-    def radius_decay(self, itr):
-        return ((self.iterations - itr) / self.iterations) * self.radius
+########################################################################################################
 
-    # Update the learning rate
-    def learning_rate_decay(self, itr):
-        return ((self.iterations - itr) / self.iterations) * self.learning_rate
-    
-    # pt is (row, column)
-    def find_neighborhood(self, pt, dist):
-        # returns a chessboard distance neighborhood, with distances determined by Euclidean distance
-        #   - Meaning, take a square around the center pt
-        dist = int(dist)
-        # This locks the grid at the edges
-        #min_y = max(int(pt[0] - dist), 0)
-        #max_y = min(int(pt[0] + dist)+1, self.height)
-        #min_x = max(int(pt[1] - dist), 0)
-        #max_x = min(int(pt[1] + dist)+1, self.width)
-        
-        # This allows the grid to wrap vertically and horizontally
-        min_y = int(pt[0] - dist)
-        max_y = int(pt[0] + dist)+1
-        min_x = int(pt[1] - dist)
-        max_x = int(pt[1] + dist)+1
-        
-        # just build the cross product of the bounds
-        neighbors = []
-        for y in range(min_y, max_y):
-            y_piece = (y-pt[0])**2
-            y = y + self.height if y < 0 else y % self.height
-            for x in range(min_x, max_x):
-                # Manhattan
-                # d = abs(y-pt[0]) + abs(x-pt[1])
-                # Euclidean
-                d = (y_piece + (x-pt[1])**2)**0.5
-                x = x + self.width  if x < 0 else x % self.width
-                neighbors.append((y,x,d))
-        return neighbors
-    
-    # Returns location of best match
-    # target_FV is a scipy array
-    def best_match(self, target_FV):
-        # Euclidean distance, computed over the entire net, hopefully this is faster
-        loc = scipy.argmin((((self.nodes - target_FV)**2).sum(axis=2))**0.5)
-        return find_indices(loc, self.width)
+''' Implementation of AbstractSom using numpy arrays. Very fast! '''
+class SOM(AbstractSom):
+	def __init__(self, height=10, width=10, FV_size=10, learning_rate=0.05, FV_ranges=None):
+		AbstractSom.__init__(self, height=height, width=width, FV_size=FV_size, learning_rate=learning_rate, FV_ranges=FV_ranges)
+		#TODO: Understand!
+		self.radius = (height+width)/3
+		self.nodes = [] # saves node data
+		self.nodeDict = [] # saves index inside kohonen map
+		self.BMUcount = [] # counts bmu selection for each node
+		self.nodeIndex = [] # saves index of nodes in order to be able to add or remove nodes
+	
+	# returns the Euclidean distance between two Feature Vectors
+	# FV_1, FV_2 are numpy arrays
+	def FV_distance(self, FV_1, FV_2):
+		# Euclidean distance
+		axis = len(np.shape(FV_1))-1
+		dist = (((FV_1 - FV_2)**2).sum(axis=axis))**0.5
+		return dist
+	# Returns location of best match, uses Euclidean distance
+	def best_match(self, target_FV): 
+		distances = self.FV_distance(self.nodes, target_FV)
+		bestIndex = np.argmin(distances)
+		bestkey = self.nodeDict[bestIndex]
+		return bestkey
+		
+	# Returns a list of points which live within 'dist' of 'pt'
+	# Uses the Chessboard distance; pt is (row, column)
+	def find_neighborhood(self, pt, dist):
+		dist = int(dist)
+		min_y = max(int(pt[0] - dist), 0)
+		max_y = min(int(pt[0] + dist + 1), self.height)
+		min_x = max(int(pt[1] - dist), 0)
+		max_x = min(int(pt[1] + dist + 1), self.width)
+		neighbors = []
+		for y in range(min_y, max_y):
+			for x in range(min_x, max_x):
+				dist = abs(y-pt[0]) + abs(x-pt[1])
+				neighbors.append([ self.getIndex(y,x), dist ])
+		return neighbors
+	
+	# get decaying radius	
+	def getRadius(self, iteration, max_iterations):
+		return self.radius * exp(-1.0*iteration*log(self.radius)/max_iterations)
+	# get learning rate for each iteration
+	def getLearningRate(self, iteration, max_iterations):
+		return self.learning_rate * exp(-1.0*iteration*log(self.radius)/max_iterations)
+	# get adaption coefficient
+	def getInfluence(self, distance, radius, iteration):
+			return exp( -1.0 * (distance**2) / (2*radius*iteration) )		
+	
+	def setNode(self, index, data):
+		self.nodes[index,:] = data
+		
+	def getNodeVector(self, index):
+		return self.nodes[index,:]
+		
+	def addToNodeVector(self, index, array):
+		self.nodes[index,:] += array
 
-    # returns the distance between two Feature Vectors
-    # FV_1, FV_2 are scipy arrays
-    def FV_distance(self, FV_1, FV_2):
-        # Euclidean distance
-        dist = (sum((FV_1 - FV_2)**2))**0.5
-        return dist
-    
-    def build_distance_mask(self):
-        tmp_nodes = scipy.zeros((self.width, self.height), float)
-        for r in range(self.height):
-            for c in range(self.width):
-                for n in self.find_neighborhood((r,c), 1):
-                    tmp_nodes[r,c] += self.FV_distance(self.nodes[r,c], self.nodes[n[0],n[1]])
-        return tmp_nodes
-    
-    # Show smoothness of the SOM.  The darker the area the more rapid the change, generally bad.
-    def save_similarity_mask(self, filename, path="."):
-        tmp_nodes = self.build_distance_mask()
-        #tmp_nodes -= tmp_nodes.min()
-        tmp_nodes *= 255 / tmp_nodes.max()
-        tmp_nodes = 255 - tmp_nodes
-        img = Image.new("L", (self.width, self.height))
-        for r in range(self.height):
-            for c in range(self.width):
-                img.putpixel((c,r), tmp_nodes[r,c])
-        img = img.resize((self.width*10,self.height*10),Image.NEAREST)
-        img.save(path + "/" + filename + ".png")
-        
-###### 
-    def save_colors(self, iter):
-        img = Image.new("RGB", (self.width, self.height))
-        for r in range(self.height):
-            for c in range(self.width):
-                img.putpixel((c,r), (int(self.nodes[r,c,0]), int(self.nodes[r,c,1]), int(self.nodes[r,c,2])))
-        img = img.resize((self.width*10,self.height*10),Image.NEAREST)
-        img.save("som_color_"+str(iter)+".png")
-###### 
+	def getIndex(self, i, j):
+		return j + i*self.width
+				
+	def initializeNodes(self, train_vector=[[]]):
+		self.nodeIndex = [ i for i in range(self.total)]
+		self.BMUcount = [0]*self.total
+		self.nodeDict = [[0,0]]*self.total
+		self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
+		for i in range(self.height):
+			for j in range(self.width):
+				index = self.getIndex(i,j)
+				self.nodeDict[index] = [i, j]			
+
+		if not self.FV_ranges:
+			self.nodes = np.asarray( map( lambda x: np.random.uniform(0,100,(self.FV_size,)) , self.nodes ) )
+		elif self.FV_ranges == 'xy_box':
+			self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
+			minmax = getBoundingBox(train_vector)
+			hh, hw = 1.0/float(self.height-1), 1.0/float(self.width-1)
+			for i in range(self.height):
+				for j in range(self.width):
+					index = self.getIndex(i,j)
+					self.nodes[index, 0] = minmax[0,0] + i*hh*abs(minmax[0,1]-minmax[0,0])
+					self.nodes[index, 1] = minmax[1,0] + j*hw*abs(minmax[1,1]-minmax[1,0])
+			
+		elif self.FV_ranges == 'minmax_box':
+			self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
+			minmax = getBoundingBox(train_vector)
+			rand_init = lambda x : np.asarray([ random.uniform(minmax[i][0], minmax[i][1]) for i in range(self.FV_size) ])
+			self.nodes = np.asarray( map( rand_init , self.nodes ) )
+		elif len(self.FV_ranges) == 1:
+			range0, range1 = self.FV_ranges[0][0], self.FV_ranges[0][1]
+			self.nodes = np.asarray( map( lambda x: np.random.uniform(range0,range1,(self.FV_size,)) , self.nodes ) )
+		else:
+			rand_init = lambda x : np.asarray([ random.uniform(self.FV_ranges[i][0], self.FV_ranges[i][1]) for i in range(self.FV_size) ])
+			self.nodes = np.asarray( map( rand_init , self.nodes ) )
+		
+	def initBmuCount(self):
+		map( lambda x : 0, self.BMUcount )
+	def raiseBmuCount(self, index):
+		self.BMUcount[index] += 1
+
+	# do this before getting Sampled Data! This removes just from the dictionary
+	def removeBmuNodes(self, threshold):
+		for n in np.copy(self.nodeIndex):
+			index = self.nodeIndex[n]
+			if self.BMUcount[index] <= threshold:
+				self.nodeIndex.pop(index)
+				self.nodeDict.pop(index)
+				self.BMUcount.pop(index)
+				self.nodes.pop(index)
+	
+	def getSampledData(self):
+		return self.nodeDict, self.nodes, self.BMUcount
+		
+################################################################################################
+
+class Linear_SOM(SOM):
+	def __init__(self, height=10, width=10, FV_size=10, learning_rate=1):
+		SOM.__init__(self, height=height, width=width, FV_size=FV_size, learning_rate=learning_rate)
+	
+	# get decaying radius	
+	def getRadius(self, iteration, max_iterations):
+		return self.radius * ((max_iterations - iteration) / max_iterations)
+	# get learning rate for each iteration
+	def getLearningRate(self, iteration, max_iterations):
+		return self.learning_rate * ((max_iterations - iteration) / max_iterations)
+	# get adaption coefficient
+	def getInfluence(self, distance, radius, iteration):
+		return (-distance + radius) / max(1,radius)
+
+
 
 if __name__ == "__main__":
-    print "Initialization..."
-    colors = [[0, 0, 0], [255, 255, 255], [0, 255, 0], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0], [0, 0, 255]]
-    color_som = SOM(32,32,3,0.1,[(0,255)])
-    print "Training for colors function..."
-    color_som.train(200, colors, False)
-    color_som.save_colors("test")
-    color_som.save_similarity_mask("test_sim")
-    
+
+	print "Initialization..."
+	colors = [[0, 0, 0], [255, 255, 255], [0, 255, 0], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0], [0, 0, 255]]
+	
+	width = 100
+	height = 100
+	iterations = 500
+	color_som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=0.5, FV_ranges='minmax_box') #'xy_box')#
+
+	print "Training colors..."
+	color_som.train(iterations=iterations, train_vector=colors)
+	color_som.save_similarity_mask("test_sim")
+	
+	print "Saving Image: sompy_test_colors.png..."	
+	try:
+		img = Image.new("RGB", (width, height))
+		for r in range(height):
+			for c in range(width):
+				
+				data = color_som.getNodeVector(color_som.getIndex(r,c))
+				
+				img.putpixel((c,r), (int(data[0]), int(data[1]), int(data[2])))
+		img = img.resize((width*10, height*10),Image.NEAREST)
+		img.save("sompy_test_colors.png")
+	except:
+		print "Error saving the image, do you have PIL (Python Imaging Library) installed?"
+		
