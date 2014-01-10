@@ -1,14 +1,18 @@
 This piece of code implements the SOM Algrorithm (Self Organizing Maps Algorithm) using numpy.
 
+Contents:
+README	 this read me file
+sompy.py contains the SOM class
+somtest.py contains an example which creates the SOM for 8 base colors.
+
+Using the SOM on different data, one is interested in the similarity mask.
+It can show clusters in data. The darker an area is the further away are the feature vectors of the SOM from each other.
+By applying SOM.removeBmuNodes(threshold) one can also remove interpolating nodes. 
+
 Built against the Python 2.7 on Linux.  Python 3 compatibility unknown.  
-No OS specific code used, but untested on other OSes.
+No OS specific code used, untested on other operating systems.
+
 Dependencies:
   python-numpy
   Saving images (like the similarity mask) requires Python Imaging Library (PIL)
 
-sompy.py contains the SOM class
-somtest.py contains an example which creates the SOM for 8 base colors.
-
-Normally you would just view the similarity mask. Which gives you an idea of the smoothness.
-The darker an area is the more rapid the change that occurred there across the SOM. 
-By applying SOM.removeBmuNodes(threshold) one can remove interpolating nodes. This can be useful for clustering.
