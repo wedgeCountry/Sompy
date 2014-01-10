@@ -1,29 +1,29 @@
 from __future__ import division
 
-## Roland Halbig
-## halbig.roland@freenet.de
-## Dec 19 2013
+'''
+Self Organizing Map using numpy
+This code is licensed and released under the GNU GPL
 
-## Self-organizing map using numpy
-## This code is licensed and released under the GNU GPL
+Author: Roland Halbig
+Email:	halbig.roland@freenet.de
+Date:	Jan 10 2014
 
-## This code uses a square grid but can be adjusted to a hexagonal grid. 
-## In order to do this, change the initialization an the find_neighborhood functions.
-##
-## This code is a fork from sompy.py by Kyle Dickerson (kyle.dickerson@gmail.com). 
-## His branch of sompy can be found on github:
-## https://github.com/kdickerson/Sompy
+This implementation uses a 2D square grid but can easily be adjusted to other grids.
+Just inherit the class an reimplement all node access functions and the initialization procedure.
 
-## If you do use this code for something, please let me know, I'd like to know if has been useful to anyone.
+This code is a fork from Kyle Dickerson's sompy.py (kyle.dickerson@gmail.com). 
+His branch of sompy can be found on github: 
+https://github.com/kdickerson/Sompy
+
+If you do use this code for something, please send me a short message. 
+I'd be happy if anybody could use it for his or her endevour!
+'''
 
 import random
-from math import *
 import sys
-from PIL import Image
-import scipy.ndimage
+from math import *ge
 import numpy as np
-
-import sklearn.decomposition
+from PIL import Image
 
 ########################################################################################################
 
