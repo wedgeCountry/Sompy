@@ -1,5 +1,4 @@
 from sompy import *
-from soms import *
 
 if __name__ == "__main__":
 
