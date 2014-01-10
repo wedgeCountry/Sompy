@@ -203,14 +203,6 @@ class SOM():
 		return idcs, nodes, bmus
 	
 	## Save the SOM's similarity mask. The darker the area the more rapid the change.
-	def build_distance_mask(self):
-		tmp_nodes = np.zeros((self.height, self.width), float)
-		for r in range(self.height):
-			for c in range(self.width):
-				neighborhood = self.find_neighborhood((r,c), 1)
-				for [n, dist] in neighborhood:
-					tmp_nodes[r,c] += self.eucl_distance(self.getNodeVector(self.getIndex(r,c)), self.getNodeVector(n))
-		return tmp_nodes
 	def save_similarity_mask(self, filename, path="."):
 		tmp_nodes = self.build_distance_mask()
 		tmp_nodes -= tmp_nodes.min()
@@ -222,4 +214,13 @@ class SOM():
 				img.putpixel((c,r), tmp_nodes[r,c])
 		img = img.resize((self.width*10,self.height*10),Image.NEAREST)
 		img.save(path + "/" + filename + ".png")
+	def build_distance_mask(self):
+		tmp_nodes = np.zeros((self.height, self.width), float)
+		for r in range(self.height):
+			for c in range(self.width):
+				neighborhood = self.find_neighborhood((r,c), 1)
+				for [n, dist] in neighborhood:
+					tmp_nodes[r,c] += self.eucl_distance(self.getNodeVector(self.getIndex(r,c)), self.getNodeVector(n))
+		return tmp_nodes
+	
 ################################################################################################
