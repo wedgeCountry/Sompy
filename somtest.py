@@ -4,7 +4,7 @@ if __name__ == "__main__":
 
 	print "Initialization..."
 	colors = [[0, 0, 0], [255, 255, 255], [0, 255, 0], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0], [0, 0, 255]]
-	transform = sklearn.decomposition.PCA()
+	#transform = sklearn.decomposition.PCA()
 	#colors = transform.fit_transform(colors)
 	import time
 	t0 = time.time()
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 	color_som.save_similarity_mask("test_sim")
 	
 	t1 = time.time()
-	print t1-t0
+	print 'time: %0.2f seconds' %(t1-t0)
 	
 	print "Saving Image: sompy_test_colors.png..."	
 	try:
@@ -26,7 +26,7 @@ if __name__ == "__main__":
 		for r in range(height):
 			for c in range(width):
 				
-				data = color_som.getNodeVector(color_som.getIndex(r,c))
+				data = color_som.nodes[color_som.getIndex(r,c)]
 	#			data = transform.inverse_transform(data)
 				img.putpixel((c,r), (int(data[0]), int(data[1]), int(data[2])))
 		img = img.resize((width*10, height*10),Image.NEAREST)
