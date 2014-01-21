@@ -63,36 +63,37 @@ class SOM():
 	def getIndex(self, i, j):
 		return j + i*self.width
 	
-	def train(self, train_vector=[[]], iterations=100, continue_training=False, randomization_factor=0):
+	def train(self, train_vector=[[]], iterations=100, num_samples = 1, continue_training=False):
 		train_vector = np.asarray(train_vector)
-		iterations = int(iterations)
-		if not continue_training: self.initializeNodes(train_vector, self.FV_ranges)	
+		max_iterations = int(iterations)
+		if not continue_training: 
+			self.initializeNodes(train_vector, self.FV_ranges)	
 		
-		for current_iteration in range(1, iterations+1):
-			sys.stdout.write("\rTraining Iteration: " + str(current_iteration) + "/" + str(iterations))
+		for iteration in range(1, max_iterations+1):
+			sys.stdout.write("\rTraining Iteration: %d/%d" %(iteration, max_iterations)); 
 			sys.stdout.flush()
 			
-			#self.nodes = scipy.ndimage.gaussian_filter(self.nodes, 0.1)
-			
-			current_radius = self.getRadius(current_iteration, iterations)
-			current_learning_rate = self.getLearningRate(current_iteration, iterations)
+			current_radius = self.getRadius(iteration, max_iterations)
+			current_rate = self.getLearningRate(iteration, max_iterations)
 	
-			for j in range(int(len(train_vector)/(randomization_factor+1))):
-				if randomization_factor > 0:
-					j = int( np.random.uniform(0, len(train_vector),1))
-				best = self.best_match(train_vector[j])
+			for j in range(num_samples):
+				j = int( np.random.uniform(0, len(train_vector),1))
 				
+				best = self.best_match(train_vector[j])				
 				for [neighbor, dist] in self.getNeighborhood(best, current_radius):
-					influence = self.getKernel(dist, current_radius, current_iteration)
-					self.nodes[neighbor,:] += influence * current_learning_rate * (train_vector[j][:] - self.nodes[neighbor,:])
+					influence = self.getKernel(dist, current_radius, iteration)
+					self.nodes[neighbor,:] += influence * current_rate * (train_vector[j][:] - self.nodes[neighbor,:])
 
 		sys.stdout.write("\n")
-	
+		return;
+		
 	## parameter functions
 	def getKernel(self, distance, radius, iteration):
 		return exp( -1.0 * abs(distance) / (2*radius*iteration) )		
+
 	def getRadius(self, iteration, max_iterations):
-		return self.radius * exp(-1.0*log(self.radius+1)*(iteration-1)/max_iterations) #*
+		return self.radius * exp(-1.0*log(self.radius+1)*(iteration-1)/max_iterations) 
+
 	def getLearningRate(self, iteration, max_iterations):
 		return self.learning_rate * exp(-1.0*(iteration-1)/max_iterations*log(self.learning_rate+1))
 
@@ -127,13 +128,12 @@ class SOM():
 	def initializeNodes(self, train_vector=[[]], mode='random'):
 		self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
 		self.nodeDict = [[0,0]]*self.total
+		self.nodeIndex = dict()
 		for i in range(self.height):
 			for j in range(self.width):
 				index = self.getIndex(i,j)
-				self.nodeDict[index] = [i, j]			
-		self.nodeIndex = dict()
-		for i in range(self.total):
-			self.nodeIndex[i] = i
+				self.nodeDict[index] = [i, j]	
+				self.nodeIndex[index] = index		
 		
 		if mode == 'random':
 			''' random vectors with values within the bounding box of the data '''
@@ -168,28 +168,9 @@ class SOM():
 			range0, range1 = mode[0][0], mode[0][1]
 			self.nodes = np.asarray( map( lambda x: np.random.uniform(range0,range1,(self.FV_size,)) , self.nodes ) )
 		else:
-			''' random vectors with values within the bounding box of the data '''
-			minmax = getBoundingBox(train_vector)
-			self.nodes = np.asarray( map( lambda x: np.random.uniform(np.min(minmax),np.max(minmax), (self.FV_size,)) , self.nodes ) )
-		
-	## methods for counting the Best Matching Unit Index
-	def resetBmuCount(self):
-		map( lambda x : 0, self.BMUcount )
-	def raiseBmuCount(self, index):
-		self.BMUcount[index] += 1
-	# do this before getting Sampled Data! This removes just from the dictionary
-	def removeBmuNodes(self, threshold):
-		for n in dict(self.nodeIndex):
-			index = self.nodeIndex[n]
-			if self.BMUcount[index] < threshold:
-				self.nodeIndex.pop(index)
-	def getBmuValues(self):
-		bmus = np.zeros((self.height, self.width), float)
-		for index in range(self.total):
-			(i, j) = self.nodeDict[index]
-			bmus[i,j] = self.BMUcount[index]
-		return bmus
-		
+			raise NotImplementedError( "ERROR! in SOM: Initialization mode not known!" )
+		return;
+				
 	## obtain the relevant som results 
 	def getSampledData(self):
 		idcs, nodes, bmus = [], [], []
@@ -202,21 +183,44 @@ class SOM():
 		bmus = np.asarray(bmus)
 		return idcs, nodes, bmus
 	
+	## get the 2D representation of the data 
+	def getDataInsideGrid(self, data):
+		transformedData = np.zeros((self.height, self.width), float)
+		for index in range(self.total):
+			(i, j) = self.nodeDict[index]
+			transformedData[i,j] = data[index]
+	
 	## obtain the relevant som results 
 	def getPrototypes(self):
-		return self.nodes
+		return self.getDataInsideGrid(self.nodes)
 		
-	## Save the SOM's similarity mask. The darker the area the more rapid the change.
-	def getSimilarityMask(self):
-		tmp_nodes = self.build_distance_mask()
-		N = np.zeros((self.width, self.height), float)
-		for c in range(self.width):
-			for r in range(self.height):
-				index = self.getIndex(r,c)
-				N[c,r] = tmp_nodes[index]
-		return N
-		 
-	## build distance mask which is some kind of average gradient
+	####################################################
+	## methods for counting the Best Matching Unit Index
+	def resetBmuCount(self):
+		map( lambda x : 0, self.BMUcount )
+		
+	def raiseBmuCount(self, index):
+		self.BMUcount[index] += 1
+	
+	def getBmuValues(self):
+		return self.getDataInsideGrid(self.BMUcount)
+		
+	# do this before getting Sampled Data! This removes just from the dictionary
+	def removeBmuNodes(self, threshold):
+		for n in dict(self.nodeIndex):
+			index = self.nodeIndex[n]
+			if self.BMUcount[index] < threshold:
+				self.nodeIndex.pop(index)
+	
+	def save_BMU_mask(self, filename, path="./"):
+		tmp_nodes = np.asarray(self.BMUcount)
+		self.save_mask(tmp_nodes, filename, path)
+	
+	####################################################
+	## The SOM's similarity mask 
+	## which is some kind of average gradient. 
+	## The darker the area the more rapid the change.
+		
 	def build_distance_mask(self):
 		tmp_nodes = np.zeros((self.total,), float)
 		for r in range(self.height):
@@ -229,15 +233,15 @@ class SOM():
 				tmp_nodes[self.getIndex(r,c)] = tmp_nodes[self.getIndex(r,c)]**0.01
 		return tmp_nodes
 		
-	## Save the SOM's similarity mask. The darker the area the more rapid the change.
+	def getSimilarityMask(self):
+		tmp_nodes = self.build_distance_mask()
+		return self.getDataInsideGrid(tmp_nodes)
+	
 	def save_similarity_mask(self, filename, path="./"):
 		tmp_nodes = self.build_distance_mask()
 		self.save_mask(tmp_nodes, filename, path)
-	## Save the SOM's BMU mask. The darker the area the more often the node is chosen as BMU
-	def save_BMU_mask(self, filename, path="./"):
-		tmp_nodes = np.asarray(self.BMUcount)
-		self.save_mask(tmp_nodes, filename, path)
-	# save values in grid to greyscale image
+	
+	# save grid values to greyscale image
 	def save_mask(self, tmp_nodes, filename, path="./"):
 		tmp_nodes -= tmp_nodes.min()
 		tmp_nodes *= 255 / max(1, tmp_nodes.max())

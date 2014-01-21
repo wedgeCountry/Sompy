@@ -14,7 +14,7 @@ if __name__ == "__main__":
 	color_som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=0.5, FV_ranges='xy_box') 
 	
 	print "Training colors..."
-	color_som.train(iterations=iterations, train_vector=colors)
+	color_som.train(iterations=iterations, train_vector=colors, num_samples = len(colors))
 	color_som.save_similarity_mask("test_sim")
 	
 	t1 = time.time()
