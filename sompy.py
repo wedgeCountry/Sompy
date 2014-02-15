@@ -69,7 +69,7 @@ class SOM():
 		'''
 		Training of the SOM. Parameters:
 		
-		train_vector - the training data
+		train_vector	- the training data
 		iterations 	- number of iterations
 		num_samples 	- determines the number of samples to be approximated in each iteration
 		cont 		- continue training without reinitializing the SOM 
