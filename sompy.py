@@ -322,12 +322,15 @@ class SOM():
 ################################################################################################
 
 class Torus_SOM(SOM):
-	''' This SOM uses a rectengular grid projected on the surface of a torus.
-		This piece of code is originally by kyle dickerson '''
+	''' 
+	This SOM uses a rectengular grid projected on the surface of a torus.
+	The code was originally written by Kyle Dickerson.
+	'''
 	def _getNeighborhood(self, index, radius):
-		# returns a chessboard distance neighborhood, with distances determined by Euclidean distance
-		# - Meaning, take a square around the center pt
-		radius = int(radius)
+		if radius < 1: 
+			return [[index, 0.0]]
+		else:
+			radius = int(radius)
 		pt = self.indexMap[index]
 		# This allows the grid to wrap vertically and horizontally
 		min_y = int(pt[0] - radius)
@@ -339,7 +342,7 @@ class Torus_SOM(SOM):
 			min_x, max_x = 0, 1
 		if self.height== 1:
 			min_y, max_y = 0, 1
-		
+	
 		# just build the cross product of the bounds
 		neighbors = []
 		for y in range(min_y, max_y):
@@ -357,11 +360,12 @@ class Torus_SOM(SOM):
 
 		
 class Linear_SOM(Torus_SOM):
-		
-	# get decaying radius	
+	''' 
+	This SOM uses linearily decreasing decay functions.
+	The code was originally written by Kyle Dickerson.
+	'''
 	def _getRadius(self, iteration, max_iterations):
 		return 1+self.radius * ((max_iterations - iteration) / max_iterations)
-	# get learning rate for each iteration
 	def _getLearningRate(self, iteration, max_iterations):
 		return self.learning_rate * ((max_iterations - iteration) / max_iterations)
 	
