@@ -11,12 +11,12 @@ if __name__ == "__main__":
 	width = 20
 	height = 20
 	iterations = 400
-	color_som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=1.0, FV_ranges='xy_box') 
+	som = SOM(width=width,height=height,FV_size=np.shape(colors)[1],learning_rate=1.0, init_mode='xy_box') 
 	
 	print "Training colors..."
-	r = color_som.train(iterations=iterations, train_vector=colors, num_samples = 2+0*len(colors), residual = True)
+	r = som.train(iterations=iterations, train_vector=colors, num_samples = 2+0*len(colors), res = True)
 	
-	color_som.save_similarity_mask("test_sim")
+	som.saveSimilarityMask("test_sim")
 	if len(r) > 1:
 		print 'Residual:', r[-1]
 	t1 = time.time()
@@ -27,8 +27,7 @@ if __name__ == "__main__":
 		img = Image.new("RGB", (width, height))
 		for r in range(height):
 			for c in range(width):
-				
-				data = color_som.nodes[color_som.getIndex(r,c)]
+				data = som.nodes[som._getIndex(r,c)]
 	#			data = transform.inverse_transform(data)
 				img.putpixel((c,r), (int(data[0]), int(data[1]), int(data[2])))
 		img = img.resize((width*10, height*10),Image.NEAREST)

@@ -56,7 +56,7 @@ class SOM():
 		'xy_box': regular grid on the x-y plane. This functionality should be used on PCA-transformed data! 
 		'1d_line': regular line on the x-y plane. 
 		'''
-		self.height self.width, self.FV_size, self.learning_rate, self.init_mode = height, width, FV_size, learning_rate, init_mode
+		self.height, self.width, self.FV_size, self.learning_rate, self.init_mode = height, width, FV_size, learning_rate, init_mode
 		self.total = self.width * self.height
 		self.radius = (height+width)/3 if initial_radius is None else initial_radius
 
@@ -173,12 +173,14 @@ class SOM():
 		return self.learning_rate
 		return self.learning_rate * exp(-1.0*(iteration-1)/max_iterations*log(self.learning_rate+1))
 
-	def _getBestMatch(self, target_FV): '''Returns location of best match, uses Euclidean distance '''
+	def _getBestMatch(self, target_FV): 
+		'''Returns location of best match, uses Euclidean distance '''
 		best = np.argmin(L1_distance(self.nodes, target_FV))
 		self._raiseBmuCount(best)
 		return best
 		
-	def _getNeighborhood(self, index, radius): ''' Returns a list of points which live within chessboard distance 'dist' of 'pt'. pt is (row, column). '''
+	def _getNeighborhood(self, index, radius): 
+		''' Returns a list of points which live within chessboard distance 'dist' of 'pt'. pt is (row, column). '''
 		if radius < 1: 
 			return [[index, 0.0]]
 		else:
@@ -198,7 +200,8 @@ class SOM():
 				neighbors.append([ self._getIndex(y,x), dist ])
 		return neighbors
 		
-	def _initializeNodes(self, train_vector, mode='random'): ''' initializes nodes as numpy arrays using init_mode '''
+	def _initializeNodes(self, train_vector, mode='random'): 
+		''' initializes nodes as numpy arrays using init_mode '''
 		self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
 		self.indexMap = [[0,0]]*self.total
 		self.nodeIndex = dict()
@@ -225,7 +228,7 @@ class SOM():
 		elif mode == '1d_line':
 			''' regular line on the x-y plane. '''
 			if self.width > 1 and self.height > 1:
-				print 'Warning: In _initializeNodes: cannot initialize 2D array as 1D line! Using random values!\n'
+				print "Warning: In _initializeNodes: cannot initialize 2D array as 1D line! Using random values!\n"
 				self._initializeNodes(train_vector, 'random')
 				return
 			self.nodes = np.asarray([ [0.0]*self.FV_size] * self.total)
@@ -243,7 +246,8 @@ class SOM():
 			raise NotImplementedError( "ERROR! in SOM: Initialization mode not known!" )
 		return;
 	
-	def _getDataInsideGrid(self, data): '''Return 2D representation of the data. '''
+	def _getDataInsideGrid(self, data): 
+		'''Return 2D representation of the data. '''
 		N = np.zeros((self.height, self.width), float)
 		for index in range(self.total):
 			(i, j) = self.indexMap[index]
