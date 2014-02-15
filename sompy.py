@@ -50,10 +50,11 @@ class SOM():
 		''' 
 		Self Organizing Map. This implementation uses a rectengular grid. 
 		Additional functionalities, such as a counting array for the choices as Best Matching Unit and for the removal of Nodes are implemented. 
+		
 		init_mode - values:
-			'random' : random vectors with values within the bounding box of the data
-			'xy_box': regular grid on the x-y plane. This functionality should be used on PCA-transformed data! 
-			'1d_line': regular line on the x-y plane. 
+		'random' : random vectors with values within the bounding box of the data
+		'xy_box': regular grid on the x-y plane. This functionality should be used on PCA-transformed data! 
+		'1d_line': regular line on the x-y plane. 
 		'''
 		self.height self.width, self.FV_size, self.learning_rate, self.init_mode = height, width, FV_size, learning_rate, init_mode
 		self.total = self.width * self.height
@@ -66,11 +67,14 @@ class SOM():
 	
 	def train(self, train_vector=[[]], iterations=100, num_samples = 1, cont=False, res=False, disp=True):
 		'''
-		train_vector - training data
-		iterations 		- number of iterations
-		cont - continue training
-		res  - calculate residuum, slow!
-		disp - display mode. True / False
+		Training of the SOM. Parameters:
+		
+		train_vector - the training data
+		iterations 	- number of iterations
+		num_samples 	- determines the number of samples to be approximated in each iteration
+		cont 		- continue training without reinitializing the SOM 
+		res  		- calculate residuum and return a list of all residua
+		disp 		- display training progress 
 		'''
 		train_vector = np.asarray(train_vector)
 		max_iterations = int(iterations)
@@ -108,14 +112,6 @@ class SOM():
 		'''
 		return self._getDataInsideGrid(self.nodes)
 	
-	def saveSimilarityMask(self, filename, threshold=0, path="./"):
-		'''
-		Write the similarity mask to a file.
-		threshold - does thresholding for values from 0 to 255
-		'''
-		tmp_nodes = self._getDistanceMask()
-		self._saveMask(tmp_nodes, filename, path, threshold=threshold)
-	
 	def removeBmuNodes(self, threshold): 
 		''' 
 		You may want to do this before getting the data. 
@@ -125,6 +121,14 @@ class SOM():
 			index = self.nodeIndex[n]
 			if self.BMUcount[index] < threshold:
 				self.nodeIndex.pop(index)
+				
+	def saveSimilarityMask(self, filename, threshold=0, path="./"):
+		'''
+		Write the similarity mask to a file.
+		threshold - does thresholding for values from 0 to 255
+		'''
+		tmp_nodes = self._getDistanceMask()
+		self._saveMask(tmp_nodes, filename, path, threshold=threshold)
 	
 	def saveBmuMask(self, filename, path="./"):
 		'''
@@ -136,7 +140,7 @@ class SOM():
 		
 	def getSampledData(self):
 		'''
-		Returns the following data structures:
+		Returns the following three data structures:
 		nodes	- list of the prototypes
 		idcs		- list of the corresponding SOM index
 		bmus		- list of the corresponding BMU counts
