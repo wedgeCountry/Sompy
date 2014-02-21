@@ -16,7 +16,7 @@ if __name__ == "__main__":
 	print "Training colors..."
 	r = som.train(iterations=iterations, train_vector=colors, num_samples = 2+0*len(colors), res = True)
 	
-	som.saveSimilarityMask("test_sim")
+	som.save_similarity_mask("test_sim")
 	if len(r) > 1:
 		print 'Residual:', r[-1]
 	t1 = time.time()
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 		img = Image.new("RGB", (width, height))
 		for r in range(height):
 			for c in range(width):
-				data = som.nodes[som._getIndex(r,c)]
+				data = som.nodes[som._get_index(r,c)]
 	#			data = transform.inverse_transform(data)
 				img.putpixel((c,r), (int(data[0]), int(data[1]), int(data[2])))
 		img = img.resize((width*10, height*10),Image.NEAREST)
@@ -47,4 +47,6 @@ if __name__ == "__main__":
 	img.putpixel((3,1),  (0, 0, 255))
 	img = img.resize((width*10, height*10),Image.NEAREST)
 	img.save("sompy_original_colors.png")
+	
+	
 	
