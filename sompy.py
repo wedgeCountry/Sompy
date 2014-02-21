@@ -64,6 +64,8 @@ class SOM():
 		self.indexMap = [[]] 			# saves index inside kohonen map
 		self.BMUcount = [0]*self.total 	# counts bmu selection for each node
 		self.nodeIndex = [] 			# saves index of nodes. Useful for adding or removing nodes
+		
+		self.residual = []
 	
 	def train(self, train_vector=[[]], iterations=100, num_samples = 1, cont=False, res=False, disp=True):
 		'''
@@ -73,12 +75,14 @@ class SOM():
 		iterations 	- number of iterations
 		num_samples 	- determines the number of samples to be approximated in each iteration
 		cont 		- continue training without reinitializing the SOM 
-		res  		- calculate residuum and return a list of all residua
+		res  		- calculate residual and return a list of all residua
 		disp 		- display training progress 
 		'''
 		train_vector = np.asarray(train_vector)
 		max_iterations = int(iterations)
 		res_list = []
+		current_radius = self.radius
+		current_rate = self.learning_rate
 		if not cont: 
 			self._initialize(train_vector, self.init_mode)	
 		
@@ -87,13 +91,13 @@ class SOM():
 				sys.stdout.write("\rTraining Iteration: %d/%d" %(iteration, max_iterations)); 
 				sys.stdout.flush()
 			
-			current_radius = self._get_radius(iteration, max_iterations)
-			current_rate = self._get_learning_rate(iteration, max_iterations)
+			current_radius = self.radius * self._decay_function(iteration, max_iterations)
+			current_rate = self.learning_rate * self._decay_function(iteration, max_iterations)
 			
 			if res: 
 				r = self._get_residual(train_vector, iteration, max_iterations)
-				res_list.append(r)
-				if iteration > max_iterations/4 and np.abs(res_list[-1]-res_list[-2]) < 0.1:
+				self.residual.append(r)
+				if iteration > max_iterations/4 and len(self.residual) > 1 and np.abs(self.residual[-1]-self.residual[-2]) < 0.1:
 					break;
 			
 			for j in range(num_samples):
@@ -111,7 +115,27 @@ class SOM():
 		Returns the grid containing the prototype vectors 
 		'''
 		return self._get_data_as_grid(self.nodes)
-	
+		
+	def get_data(self):
+		'''
+		Returns the following three data structures:
+		nodes	- list of the prototypes
+		idcs		- list of the corresponding SOM index
+		bmus		- list of the corresponding BMU counts
+		'''
+		idcs, nodes, bmus = [], [], []
+		for i in self.nodeIndex:
+			idcs.append(self.indexMap[i])
+			nodes.append(self.nodes[self.nodeIndex[i]])
+			bmus.append(self.BMUcount[self.nodeIndex[i]])
+		idcs = np.asarray(idcs)
+		nodes = np.asarray(nodes)
+		bmus = np.asarray(bmus)
+		return nodes, idcs, bmus
+		
+	def get_residual(self):
+		return self.residual
+		
 	def remove_bmu_nodes(self, threshold): 
 		''' 
 		You may want to do this before getting the data. 
@@ -137,41 +161,20 @@ class SOM():
 		'''
 		tmp_nodes = np.asarray(self.BMUcount)
 		self._save_mask(tmp_nodes, filename, path)
-		
-	def get_data(self):
-		'''
-		Returns the following three data structures:
-		nodes	- list of the prototypes
-		idcs		- list of the corresponding SOM index
-		bmus		- list of the corresponding BMU counts
-		'''
-		idcs, nodes, bmus = [], [], []
-		for i in self.nodeIndex:
-			idcs.append(self.indexMap[i])
-			nodes.append(self.nodes[self.nodeIndex[i]])
-			bmus.append(self.BMUcount[self.nodeIndex[i]])
-		idcs = np.asarray(idcs)
-		nodes = np.asarray(nodes)
-		bmus = np.asarray(bmus)
-		return nodes, idcs, bmus
 	
 	###################################
 	###### private functions
 	
-	## node access method for a rectangular grid
-	def _get_index(self, i, j):
-		return j + i*self.width
-
 	## parameter functions
 	def _get_kernel(self, distance, radius, iteration):
 		return exp( -1.0 * abs(distance) / (2*radius*iteration) )		
-
-	def _get_radius(self, iteration, max_iterations):
-		return self.radius * exp(-1.0*log(self.radius+1)*(iteration-1)/max_iterations) 
-
-	def _get_learning_rate(self, iteration, max_iterations):
-		return self.learning_rate
-		return self.learning_rate * exp(-1.0*(iteration-1)/max_iterations*log(self.learning_rate+1))
+	
+	def _decay_function(self, iteration, max_iterations):
+		return 1-np.tanh((iteration)/max_iterations)
+	
+	## node access method for a rectangular grid
+	def _get_index(self, i, j):
+		return j + i*self.width
 
 	def _get_best_match(self, target_FV): 
 		'''Returns location of best match, uses Euclidean distance '''
@@ -256,8 +259,9 @@ class SOM():
 	
 	def _get_residual(self, samples, iteration, max_iterations):
 		res = 0.0
-		radius = self._get_radius(iteration, max_iterations)
-		rate = self._get_learning_rate(iteration, max_iterations)
+		
+		radius = self.radius * self._decay_function(iteration, max_iterations)
+		rate = self.learning_rate * self._decay_function(iteration, max_iterations)
 		for j in range(len(samples)):
 			best = self._get_best_match(samples[j])			
 			for [neighbor, dist] in self._get_neighborhood(best, radius):
@@ -364,10 +368,8 @@ class LinearSOM(TorusSOM):
 	This SOM uses linearily decreasing decay functions.
 	The code was originally written by Kyle Dickerson.
 	'''
-	def _get_radius(self, iteration, max_iterations):
-		return 1+self.radius * ((max_iterations - iteration) / max_iterations)
-	def _get_learning_rate(self, iteration, max_iterations):
-		return self.learning_rate * ((max_iterations - iteration) / max_iterations)
-	
+	def _decay_function(self, iteration, max_iterations):
+		return 1 + ((max_iterations - iteration) / max_iterations)
+
 
 
