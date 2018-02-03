@@ -1,5 +1,5 @@
 Self Organizing Maps
-====================
+--------------------
 	
 This piece of code implements the Self Organizing Maps (SOM) algorithm using numpy.
 
