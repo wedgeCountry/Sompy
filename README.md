@@ -12,7 +12,7 @@ By applying SOM.remove_bmu_nodes(threshold) one can also remove interpolating no
 * sompy.py contains the SOM class
 * somtest.py contains an example which creates the SOM for 8 base colors.
 
-### Dependencies:### 
+### Dependencies: ### 
 Built against the Python 2.7 on Linux.  Python 3 compatibility unknown.  
 No OS specific code used, untested on other operating systems.
 
